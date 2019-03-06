@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/opsgenie/opsgenie-go-sdk/user"
+	"github.com/opsgenie/opsgenie-go-sdk/userv2"
 )
 
 func resourceOpsGenieUser() *schema.Resource {
@@ -58,27 +58,29 @@ func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error 
 	locale := d.Get("locale").(string)
 	timeZone := d.Get("timezone").(string)
 
-	createRequest := user.CreateUserRequest{
-		Username: username,
-		Fullname: fullName,
-		Role:     role,
+	createRequest := userv2.CreateUserRequest{
+		UserName: username,
+		FullName: fullName,
+		Role:     &userv2.UserRole{Name: role},
 		Locale:   locale,
 		Timezone: timeZone,
 	}
 
-	log.Printf("[INFO] Creating OpsGenie user '%s'", username)
+	log.Printf("[INFO] Creating OpsGenie user '%s' %v", username, createRequest)
 	createResponse, err := client.Create(createRequest)
 	if err != nil {
 		return err
 	}
+	log.Printf("[INFO] Created user: %v", createResponse)
+	// err = checkOpsGenieResponse(createResponse.Code, createResponse.Status)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = checkOpsGenieResponse(createResponse.Code, createResponse.Status)
-	if err != nil {
-		return err
-	}
-
-	getRequest := user.GetUserRequest{
-		Username: username,
+	getRequest := userv2.GetUserRequest{
+		Identifier: &userv2.Identifier{
+			Username: username,
+		},
 	}
 
 	getResponse, err := client.Get(getRequest)
@@ -86,7 +88,7 @@ func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	d.SetId(getResponse.Id)
+	d.SetId(getResponse.User.ID)
 
 	return resourceOpsGenieUserRead(d, meta)
 }
@@ -94,15 +96,15 @@ func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error 
 func resourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*OpsGenieClient).users
 
-	listRequest := user.ListUsersRequest{}
+	listRequest := userv2.ListUsersRequest{}
 	listResponse, err := client.List(listRequest)
 	if err != nil {
 		return err
 	}
 
-	var found *user.GetUserResponse
+	var found *userv2.User
 	for _, user := range listResponse.Users {
-		if user.Id == d.Id() {
+		if user.ID == d.Id() {
 			found = &user
 			break
 		}
@@ -114,8 +116,10 @@ func resourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 
-	getRequest := user.GetUserRequest{
-		Id: d.Id(),
+	getRequest := userv2.GetUserRequest{
+		Identifier: &userv2.Identifier{
+			Username: found.Username,
+		},
 	}
 
 	getResponse, err := client.Get(getRequest)
@@ -123,11 +127,11 @@ func resourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.Set("username", getResponse.Username)
-	d.Set("full_name", getResponse.Fullname)
-	d.Set("role", getResponse.Role)
-	d.Set("locale", getResponse.Locale)
-	d.Set("timezone", getResponse.Timezone)
+	d.Set("username", getResponse.User.Username)
+	d.Set("full_name", getResponse.User.FullName)
+	d.Set("role", getResponse.User.Role)
+	d.Set("locale", getResponse.User.Locale)
+	d.Set("timezone", getResponse.User.TimeZone)
 
 	return nil
 }
@@ -143,10 +147,12 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 
 	log.Printf("[INFO] Updating OpsGenie user '%s'", username)
 
-	updateRequest := user.UpdateUserRequest{
-		Id:       d.Id(),
-		Fullname: fullName,
-		Role:     role,
+	updateRequest := userv2.UpdateUserRequest{
+		Identifier: &userv2.Identifier{
+			Username: username,
+		},
+		FullName: fullName,
+		Role:     userv2.UserRole{Name: role},
 		Locale:   locale,
 		Timezone: timeZone,
 	}
@@ -155,11 +161,12 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
+	log.Printf("[INFO] Updated user: %v", updateResponse)
 
-	err = checkOpsGenieResponse(updateResponse.Code, updateResponse.Status)
-	if err != nil {
-		return err
-	}
+	// err = checkOpsGenieResponse(updateResponse.Code, updateResponse.Status)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -168,15 +175,17 @@ func resourceOpsGenieUserDelete(d *schema.ResourceData, meta interface{}) error 
 	log.Printf("[INFO] Deleting OpsGenie user '%s'", d.Get("username").(string))
 	client := meta.(*OpsGenieClient).users
 
-	deleteRequest := user.DeleteUserRequest{
-		Id: d.Id(),
+	deleteRequest := userv2.DeleteUserRequest{
+		Identifier: &userv2.Identifier{
+			ID: d.Id(),
+		},
 	}
 
-	_, err := client.Delete(deleteRequest)
+	deleteResponse, err := client.Delete(deleteRequest)
 	if err != nil {
 		return err
 	}
-
+	log.Printf("[INFO] Deleted user: %v", deleteResponse)
 	return nil
 }
 

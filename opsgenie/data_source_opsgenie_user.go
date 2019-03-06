@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/opsgenie/opsgenie-go-sdk/user"
+	user "github.com/opsgenie/opsgenie-go-sdk/userv2"
 )
 
 func dataSourceOpsGenieUser() *schema.Resource {
@@ -42,7 +42,7 @@ func dataSourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error 
 		return nil
 	}
 
-	var found *user.GetUserResponse
+	var found *user.User
 
 	if len(resp.Users) > 0 {
 		for _, user := range resp.Users {
@@ -57,9 +57,9 @@ func dataSourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Unable to locate any user with the username: %s", username)
 	}
 
-	d.SetId(found.Id)
+	d.SetId(found.ID)
 	d.Set("username", found.Username)
-	d.Set("full_name", found.Fullname)
+	d.Set("full_name", found.FullName)
 	d.Set("role", found.Role)
 
 	return nil
