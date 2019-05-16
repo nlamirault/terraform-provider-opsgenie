@@ -1,15 +1,16 @@
 package opsgenie
 
 import (
-	"log"
-
+	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"regexp"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/opsgenie/opsgenie-go-sdk/team"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/team"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 )
 
 func resourceOpsGenieTeam() *schema.Resource {
@@ -55,122 +56,80 @@ func resourceOpsGenieTeam() *schema.Resource {
 }
 
 func resourceOpsGenieTeamCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).teams
-
+	client := meta.(*OpsGenieClient).team
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
 
-	createRequest := team.CreateTeamRequest{
+	members, err := expandOpsGenieTeamMembers(d, meta)
+	if err != nil {
+		return err
+	}
+	log.Printf("[INFO] Creating OpsGenie team '%s'", name)
+	result, err := client.Create(context.Background(), &team.CreateTeamRequest{
 		Name:        name,
 		Description: description,
-		Members:     expandOpsGenieTeamMembers(d),
-	}
-
-	log.Printf("[INFO] Creating OpsGenie team '%s'", name)
-
-	createResponse, err := client.Create(createRequest)
+		Members:     members,
+	})
 	if err != nil {
 		return err
 	}
 
-	err = checkOpsGenieResponse(createResponse.Code, createResponse.Status)
-	if err != nil {
-		return err
-	}
-
-	getRequest := team.GetTeamRequest{
-		Name: name,
-	}
-
-	getResponse, err := client.Get(getRequest)
-	if err != nil {
-		return err
-	}
-
-	d.SetId(getResponse.Id)
-
+	d.SetId(result.Id)
+	d.Set("name", result.Name)
 	return resourceOpsGenieTeamRead(d, meta)
 }
 
 func resourceOpsGenieTeamRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).teams
+	client := meta.(*OpsGenieClient).team
 
-	listRequest := team.ListTeamsRequest{}
-	listResponse, err := client.List(listRequest)
+	result, err := client.Get(context.Background(), &team.GetTeamRequest{
+		IdentifierValue: d.Get("name").(string),
+	})
 	if err != nil {
 		return err
 	}
 
-	var found *team.GetTeamResponse
-	for _, team := range listResponse.Teams {
-		if team.Id == d.Id() {
-			found = &team
-			break
-		}
-	}
-
-	if found == nil {
-		d.SetId("")
-		log.Printf("[INFO] Team %q not found. Removing from state", d.Get("name").(string))
-		return nil
-	}
-
-	getRequest := team.GetTeamRequest{
-		Id: d.Id(),
-	}
-
-	getResponse, err := client.Get(getRequest)
-	if err != nil {
-		return err
-	}
-
-	d.Set("name", getResponse.Name)
-	d.Set("description", getResponse.Description)
-	d.Set("member", flattenOpsGenieTeamMembers(getResponse.Members))
+	d.Set("name", result.Name)
+	d.Set("description", result.Description)
+	d.Set("member", flattenOpsGenieTeamMembers(result.Members))
 
 	return nil
 }
 
 func resourceOpsGenieTeamUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).teams
+	client := meta.(*OpsGenieClient).team
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
+	log.Printf("[INFO] Updating OpsGenie team '%s'", name)
 
-	updateRequest := team.UpdateTeamRequest{
+	members, err := expandOpsGenieTeamMembers(d, meta)
+	if err != nil {
+		return err
+	}
+	result, err := client.Update(context.Background(), &team.UpdateTeamRequest{
 		Id:          d.Id(),
 		Name:        name,
 		Description: description,
-		Members:     expandOpsGenieTeamMembers(d),
-	}
-
-	log.Printf("[INFO] Updating OpsGenie team '%s'", name)
-
-	updateResponse, err := client.Update(updateRequest)
+		Members:     members,
+	})
 	if err != nil {
 		return err
 	}
-
-	err = checkOpsGenieResponse(updateResponse.Code, updateResponse.Status)
-	if err != nil {
-		return err
-	}
-
+	log.Printf("[INFO] Team %s updated", result.Name)
 	return nil
 }
 
 func resourceOpsGenieTeamDelete(d *schema.ResourceData, meta interface{}) error {
 	log.Printf("[INFO] Deleting OpsGenie team '%s'", d.Get("name").(string))
-	client := meta.(*OpsGenieClient).teams
+	client := meta.(*OpsGenieClient).team
 
-	deleteRequest := team.DeleteTeamRequest{
-		Id: d.Id(),
-	}
-
-	_, err := client.Delete(deleteRequest)
+	_, err := client.Delete(context.Background(), &team.DeleteTeamRequest{
+		IdentifierValue: d.Get("name").(string),
+	})
 	if err != nil {
 		return err
 	}
-
+	// log.Printf("[INFO] Team %s deleted", result.Name)
 	return nil
 }
 
@@ -187,12 +146,13 @@ func flattenOpsGenieTeamMembers(input []team.Member) []interface{} {
 	return members
 }
 
-func expandOpsGenieTeamMembers(d *schema.ResourceData) []team.Member {
-	input := d.Get("member").([]interface{})
+func expandOpsGenieTeamMembers(d *schema.ResourceData, meta interface{}) ([]team.Member, error) {
+	client := meta.(*OpsGenieClient).user
 
+	input := d.Get("member").([]interface{})
 	members := make([]team.Member, 0, len(input))
 	if input == nil {
-		return members
+		return members, nil
 	}
 
 	for _, v := range input {
@@ -200,16 +160,31 @@ func expandOpsGenieTeamMembers(d *schema.ResourceData) []team.Member {
 
 		username := config["username"].(string)
 		role := config["role"].(string)
-
+		result, err := client.List(context.Background(), &user.ListRequest{})
+		if err != nil {
+			return nil, err
+		}
+		var user *user.User
+		if len(result.Users) > 0 {
+			for _, u := range result.Users {
+				if u.Username == username {
+					user = &u
+					break
+				}
+			}
+		}
 		member := team.Member{
-			User: username,
+			User: team.User{
+				ID:       user.Id,
+				Username: user.Username,
+			},
 			Role: role,
 		}
 
 		members = append(members, member)
 	}
 
-	return members
+	return members, nil
 }
 
 func validateOpsGenieTeamName(v interface{}, k string) (ws []string, errors []error) {

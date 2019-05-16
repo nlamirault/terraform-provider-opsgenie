@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"github.com/opsgenie/opsgenie-go-sdk/team"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/team"
 )
 
 func init() {

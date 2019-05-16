@@ -35,7 +35,7 @@ func providerConfigure(data *schema.ResourceData) (interface{}, error) {
 	log.Println("[INFO] Initializing OpsGenie client")
 
 	config := Config{
-		ApiKey: data.Get("api_key").(string),
+		APIKey: data.Get("api_key").(string),
 	}
 
 	return config.Client()
