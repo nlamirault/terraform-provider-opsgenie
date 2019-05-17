@@ -18,7 +18,7 @@ func sharedConfigForRegion(region string) (interface{}, error) {
 	}
 
 	config := Config{
-		ApiKey: os.Getenv("OPSGENIE_API_KEY"),
+		APIKey: os.Getenv("OPSGENIE_API_KEY"),
 	}
 
 	client, err := config.Client()

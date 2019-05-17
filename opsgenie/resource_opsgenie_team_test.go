@@ -1,6 +1,7 @@
 package opsgenie
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -26,9 +27,9 @@ func testSweepTeam(region string) error {
 		return err
 	}
 
-	client := meta.(*OpsGenieClient).teams
+	client := meta.(*OpsGenieClient).team
 
-	resp, err := client.List(team.ListTeamsRequest{})
+	resp, err := client.List(context.Background(), &team.ListTeamRequest{})
 	if err != nil {
 		return err
 	}
@@ -37,11 +38,9 @@ func testSweepTeam(region string) error {
 		if strings.HasPrefix(t.Name, "acctest") {
 			log.Printf("Destroying team %s", t.Name)
 
-			deleteRequest := team.DeleteTeamRequest{
-				Id: t.Id,
-			}
-
-			if _, err := client.Delete(deleteRequest); err != nil {
+			if _, err := client.Delete(context.Background(), &team.DeleteTeamRequest{
+				IdentifierValue: t.Name,
+			}); err != nil {
 				return err
 			}
 		}
@@ -222,18 +221,16 @@ func TestAccOpsGenieTeam_withMultipleUsers(t *testing.T) {
 }
 
 func testCheckOpsGenieTeamDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(*OpsGenieClient).teams
+	client := testAccProvider.Meta().(*OpsGenieClient).team
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "opsgenie_team" {
 			continue
 		}
 
-		req := team.GetTeamRequest{
-			Id: rs.Primary.Attributes["id"],
-		}
-
-		result, _ := client.Get(req)
+		result, _ := client.Get(context.Background(), &team.GetTeamRequest{
+			IdentifierValue: rs.Primary.Attributes["id"],
+		})
 		if result != nil {
 			return fmt.Errorf("Team still exists:\n%#v", result)
 		}
@@ -253,13 +250,11 @@ func testCheckOpsGenieTeamExists(name string) resource.TestCheckFunc {
 		id := rs.Primary.Attributes["id"]
 		name := rs.Primary.Attributes["name"]
 
-		client := testAccProvider.Meta().(*OpsGenieClient).teams
+		client := testAccProvider.Meta().(*OpsGenieClient).team
 
-		req := team.GetTeamRequest{
-			Id: rs.Primary.Attributes["id"],
-		}
-
-		result, _ := client.Get(req)
+		result, _ := client.Get(context.Background(), &team.GetTeamRequest{
+			IdentifierValue: rs.Primary.Attributes["id"],
+		})
 		if result == nil {
 			return fmt.Errorf("Bad: Team %q (name: %q) does not exist", id, name)
 		}

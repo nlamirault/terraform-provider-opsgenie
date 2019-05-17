@@ -1,6 +1,7 @@
 package opsgenie
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -26,9 +27,9 @@ func testSweepUser(region string) error {
 		return err
 	}
 
-	client := meta.(*OpsGenieClient).users
+	client := meta.(*OpsGenieClient).user
 
-	resp, err := client.List(user.ListUsersRequest{})
+	resp, err := client.List(context.Background(), &user.ListRequest{})
 	if err != nil {
 		return err
 	}
@@ -36,12 +37,9 @@ func testSweepUser(region string) error {
 	for _, u := range resp.Users {
 		if strings.HasPrefix(u.Username, "acctest-") {
 			log.Printf("Destroying user %s", u.Username)
-
-			deleteRequest := user.DeleteUserRequest{
-				Id: u.Id,
-			}
-
-			if _, err := client.Delete(deleteRequest); err != nil {
+			if _, err := client.Delete(context.Background(), &user.DeleteRequest{
+				Identifier: u.Id,
+			}); err != nil {
 				return err
 			}
 		}
@@ -181,18 +179,16 @@ func TestAccOpsGenieUser_complete(t *testing.T) {
 }
 
 func testCheckOpsGenieUserDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(*OpsGenieClient).users
+	client := testAccProvider.Meta().(*OpsGenieClient).user
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "opsgenie_user" {
 			continue
 		}
 
-		req := user.GetUserRequest{
-			Id: rs.Primary.Attributes["id"],
-		}
-
-		result, _ := client.Get(req)
+		result, _ := client.Get(context.Background(), &user.GetRequest{
+			Identifier: rs.Primary.Attributes["id"],
+		})
 		if result != nil {
 			return fmt.Errorf("User still exists:\n%#v", result)
 		}
@@ -212,13 +208,11 @@ func testCheckOpsGenieUserExists(name string) resource.TestCheckFunc {
 		id := rs.Primary.Attributes["id"]
 		username := rs.Primary.Attributes["username"]
 
-		client := testAccProvider.Meta().(*OpsGenieClient).users
+		client := testAccProvider.Meta().(*OpsGenieClient).user
 
-		req := user.GetUserRequest{
-			Id: rs.Primary.Attributes["id"],
-		}
-
-		result, _ := client.Get(req)
+		result, _ := client.Get(context.Background(), &user.GetRequest{
+			Identifier: rs.Primary.Attributes["id"],
+		})
 		if result == nil {
 			return fmt.Errorf("Bad: User %q (username: %q) does not exist", id, username)
 		}
