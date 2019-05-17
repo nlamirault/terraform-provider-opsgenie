@@ -1,12 +1,12 @@
 package opsgenie
 
 import (
+	"context"
+	"fmt"
 	"log"
 
-	"fmt"
-
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/opsgenie/opsgenie-go-sdk/userv2"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 )
 
 func resourceOpsGenieUser() *schema.Resource {
@@ -50,7 +50,7 @@ func resourceOpsGenieUser() *schema.Resource {
 }
 
 func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).users
+	client := meta.(*OpsGenieClient).user
 
 	username := d.Get("username").(string)
 	fullName := d.Get("full_name").(string)
@@ -58,86 +58,47 @@ func resourceOpsGenieUserCreate(d *schema.ResourceData, meta interface{}) error 
 	locale := d.Get("locale").(string)
 	timeZone := d.Get("timezone").(string)
 
-	createRequest := userv2.CreateUserRequest{
-		UserName: username,
+	log.Printf("[INFO] Creating OpsGenie user '%s'", username)
+
+	result, err := client.Create(context.Background(), &user.CreateRequest{
+		Username: username,
 		FullName: fullName,
-		Role:     &userv2.UserRole{Name: role},
-		Locale:   locale,
-		Timezone: timeZone,
-	}
-
-	log.Printf("[INFO] Creating OpsGenie user '%s' %v", username, createRequest)
-	createResponse, err := client.Create(createRequest)
-	if err != nil {
-		return err
-	}
-	log.Printf("[INFO] Created user: %v", createResponse)
-	// err = checkOpsGenieResponse(createResponse.Code, createResponse.Status)
-	// if err != nil {
-	// 	return err
-	// }
-
-	getRequest := userv2.GetUserRequest{
-		Identifier: &userv2.Identifier{
-			Username: username,
+		Role: &user.UserRoleRequest{
+			RoleName: role,
 		},
-	}
-
-	getResponse, err := client.Get(getRequest)
+		Locale:   locale,
+		TimeZone: timeZone,
+	})
 	if err != nil {
 		return err
 	}
+	log.Printf("[INFO] Created user: %v", result)
 
-	d.SetId(getResponse.User.ID)
-
+	d.SetId(result.Id)
 	return resourceOpsGenieUserRead(d, meta)
 }
 
 func resourceOpsGenieUserRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).users
+	client := meta.(*OpsGenieClient).user
 
-	listRequest := userv2.ListUsersRequest{}
-	listResponse, err := client.List(listRequest)
+	result, err := client.Get(context.Background(), &user.GetRequest{
+		Identifier: d.Id(),
+	})
 	if err != nil {
 		return err
 	}
 
-	var found *userv2.User
-	for _, user := range listResponse.Users {
-		if user.ID == d.Id() {
-			found = &user
-			break
-		}
-	}
-
-	if found == nil {
-		d.SetId("")
-		log.Printf("[INFO] User %q not found. Removing from state", d.Get("username").(string))
-		return nil
-	}
-
-	getRequest := userv2.GetUserRequest{
-		Identifier: &userv2.Identifier{
-			Username: found.Username,
-		},
-	}
-
-	getResponse, err := client.Get(getRequest)
-	if err != nil {
-		return err
-	}
-
-	d.Set("username", getResponse.User.Username)
-	d.Set("full_name", getResponse.User.FullName)
-	d.Set("role", getResponse.User.Role)
-	d.Set("locale", getResponse.User.Locale)
-	d.Set("timezone", getResponse.User.TimeZone)
+	d.Set("username", result.Username)
+	d.Set("full_name", result.FullName)
+	d.Set("role", result.Role)
+	d.Set("locale", result.Locale)
+	d.Set("timezone", result.TimeZone)
 
 	return nil
 }
 
 func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*OpsGenieClient).users
+	client := meta.(*OpsGenieClient).user
 
 	username := d.Get("username").(string)
 	fullName := d.Get("full_name").(string)
@@ -147,21 +108,17 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 
 	log.Printf("[INFO] Updating OpsGenie user '%s'", username)
 
-	updateRequest := userv2.UpdateUserRequest{
-		Identifier: &userv2.Identifier{
-			Username: username,
-		},
-		FullName: fullName,
-		Role:     userv2.UserRole{Name: role},
-		Locale:   locale,
-		Timezone: timeZone,
-	}
-
-	updateResponse, err := client.Update(updateRequest)
+	result, err := client.Update(context.Background(), &user.UpdateRequest{
+		Identifier: d.Id(),
+		FullName:   fullName,
+		Role:       &user.UserRoleRequest{RoleName: role},
+		Locale:     locale,
+		TimeZone:   timeZone,
+	})
 	if err != nil {
 		return err
 	}
-	log.Printf("[INFO] Updated user: %v", updateResponse)
+	log.Printf("[INFO] Updated user: %v", result)
 
 	// err = checkOpsGenieResponse(updateResponse.Code, updateResponse.Status)
 	// if err != nil {
@@ -173,19 +130,16 @@ func resourceOpsGenieUserUpdate(d *schema.ResourceData, meta interface{}) error 
 
 func resourceOpsGenieUserDelete(d *schema.ResourceData, meta interface{}) error {
 	log.Printf("[INFO] Deleting OpsGenie user '%s'", d.Get("username").(string))
-	client := meta.(*OpsGenieClient).users
+	client := meta.(*OpsGenieClient).user
 
-	deleteRequest := userv2.DeleteUserRequest{
-		Identifier: &userv2.Identifier{
-			ID: d.Id(),
-		},
-	}
-
-	deleteResponse, err := client.Delete(deleteRequest)
+	result, err := client.Delete(context.Background(), &user.DeleteRequest{
+		Identifier: d.Id(),
+	})
 	if err != nil {
 		return err
 	}
-	log.Printf("[INFO] Deleted user: %v", deleteResponse)
+
+	log.Printf("[INFO] Deleted user: %v", result)
 	return nil
 }
 
