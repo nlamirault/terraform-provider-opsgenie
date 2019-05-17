@@ -50,3 +50,9 @@ resource "opsgenie_team" "team_test" {
     role     = "user"
   }
 }
+
+resource "opsgenie_contact" "first_contact" {
+  username = "${opsgenie_user.first.username}"
+  to       = "john.doe@doe.com"
+  method   = "email"
+}
