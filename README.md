@@ -7,28 +7,8 @@ Terraform Provider
 
 <img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" width="600px">
 
-Requirements
-------------
 
--	[Terraform](https://www.terraform.io/downloads.html) 0.10.x
--	[Go](https://golang.org/doc/install) 1.8 (to build the provider plugin)
 
-Building The Provider
----------------------
-
-Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-opsgenie`
-
-```sh
-$ mkdir -p $GOPATH/src/github.com/terraform-providers; cd $GOPATH/src/github.com/terraform-providers
-$ git clone git@github.com:terraform-providers/terraform-provider-opsgenie
-```
-
-Enter the provider directory and build the provider
-
-```sh
-$ cd $GOPATH/src/github.com/terraform-providers/terraform-provider-opsgenie
-$ make build
-```
 
 Usage
 -------
@@ -83,6 +63,30 @@ resource "opsgenie_contact" "first_contact_sms" {
 
 ```
 
+
+
+Requirements
+------------
+
+-	[Terraform](https://www.terraform.io/downloads.html) 0.10.x
+-	[Go](https://golang.org/doc/install) 1.8 (to build the provider plugin)
+
+Building The Provider
+---------------------
+
+Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-opsgenie`
+
+```sh
+$ mkdir -p $GOPATH/src/github.com/terraform-providers; cd $GOPATH/src/github.com/terraform-providers
+$ git clone git@github.com:terraform-providers/terraform-provider-opsgenie
+```
+
+Enter the provider directory and build the provider
+
+```sh
+$ cd $GOPATH/src/github.com/terraform-providers/terraform-provider-opsgenie
+$ make build
+```
 
 
 Using the provider
