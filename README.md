@@ -61,6 +61,12 @@ resource "opsgenie_contact" "first_contact_sms" {
   method   = "sms"
 }
 
+resource "opsgenie_schedule" "schedule_doe_ops" {
+  name        = "Doe Schedule"
+  description = "The schedule for the Doe team"
+  owner       = "${opsgenie_team.team_test.name}"
+}
+
 ```
 
 

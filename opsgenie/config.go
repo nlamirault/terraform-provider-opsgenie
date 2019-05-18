@@ -7,6 +7,7 @@ import (
 
 	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/contact"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/schedule"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/team"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 )
@@ -16,9 +17,10 @@ type OpsGenieClient struct {
 
 	StopContext context.Context
 
-	team    team.Client
-	user    user.Client
-	contact contact.Client
+	team     team.Client
+	user     user.Client
+	contact  contact.Client
+	schedule schedule.Client
 }
 
 // Config defines the configuration options for the OpsGenie client
@@ -53,6 +55,12 @@ func (c *Config) Client() (*OpsGenieClient, error) {
 		return nil, err
 	}
 	client.contact = *contactClient
+
+	scheduleClient, err := schedule.NewClient(opsGenieConfig)
+	if err != nil {
+		return nil, err
+	}
+	client.schedule = *scheduleClient
 
 	return &client, nil
 }
