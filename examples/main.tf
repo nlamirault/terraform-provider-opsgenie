@@ -51,8 +51,14 @@ resource "opsgenie_team" "team_test" {
   }
 }
 
-resource "opsgenie_contact" "first_contact" {
+resource "opsgenie_contact" "first_contact_email" {
   username = "${opsgenie_user.first.username}"
   to       = "john.doe@doe.com"
   method   = "email"
+}
+
+resource "opsgenie_contact" "first_contact_sms" {
+  username = "${opsgenie_user.first.username}"
+  to       = "33-600000000"
+  method   = "sms"
 }

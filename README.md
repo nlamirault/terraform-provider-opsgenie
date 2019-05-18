@@ -30,6 +30,61 @@ $ cd $GOPATH/src/github.com/terraform-providers/terraform-provider-opsgenie
 $ make build
 ```
 
+Usage
+-------
+
+```
+provider "opsgenie" {
+  api_key = "${var.api_key}"
+}
+
+resource "opsgenie_user" "first" {
+  username  = "john@doe.com"
+  full_name = "John Doe"
+  role      = "admin"
+  locale    = "fr_FR"
+  timezone  = "Europe/Paris"
+}
+
+resource "opsgenie_user" "second" {
+  username  = "jane@doe.com"
+  full_name = "Jane Doe"
+  role      = "user"
+  locale    = "fr_FR"
+  timezone  = "Europe/Paris"
+}
+
+resource "opsgenie_team" "team_test" {
+  name        = "Test"
+  description = "This team deals with all the things"
+
+  member {
+    username = "${opsgenie_user.first.username}"
+    role     = "admin"
+  }
+
+  member {
+    username = "${opsgenie_user.second.username}"
+    role     = "user"
+  }
+}
+
+resource "opsgenie_contact" "first_contact_email" {
+  username = "${opsgenie_user.first.username}"
+  to       = "john.doe@doe.com"
+  method   = "email"
+}
+
+resource "opsgenie_contact" "first_contact_sms" {
+  username = "${opsgenie_user.first.username}"
+  to       = "33-600000000"
+  method   = "sms"
+}
+
+```
+
+
+
 Using the provider
 ----------------------
 ## Fill in for each provider
