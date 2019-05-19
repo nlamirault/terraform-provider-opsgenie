@@ -65,11 +65,14 @@ resource "opsgenie_schedule" "schedule_doe_ops" {
   name        = "Doe Schedule"
   description = "The schedule for the Doe team"
   owner       = "${opsgenie_team.team_test.name}"
+  timezone    = "Europe/Paris"
 }
 
 ```
 
-
+![users](screenshots/users.png)
+![contacts](screenshots/user_contacts.png)
+![rotations](screenshots/schedule_rotations.png)
 
 Requirements
 ------------
