@@ -66,6 +66,30 @@ resource "opsgenie_schedule" "schedule_doe_ops" {
   description = "The schedule for the Doe team"
   owner       = "${opsgenie_team.team_test.name}"
   timezone    = "Europe/Paris"
+
+  rotation = {
+    name       = "First rotation"
+    start_date = "2019-05-20T08:00:00Z"
+    end_date   = "2019-05-24T19:00:00Z"
+    type       = "daily"
+
+    participant {
+      type     = "user"
+      username = "${opsgenie_user.first.username}"
+    }
+  }
+
+  rotation = {
+    name       = "Second rotation"
+    start_date = "2019-05-27T08:00:00Z"
+    end_date   = "2019-05-31T19:00:00Z"
+    type       = "daily"
+
+    participant {
+      type     = "user"
+      username = "${opsgenie_user.second.username}"
+    }
+  }
 }
 
 ```
