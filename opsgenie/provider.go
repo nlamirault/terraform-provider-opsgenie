@@ -20,6 +20,7 @@ func Provider() terraform.ResourceProvider {
 
 		DataSourcesMap: map[string]*schema.Resource{
 			"opsgenie_user": dataSourceOpsGenieUser(),
+			"opsgenie_team": dataSourceOpsGenieTeam(),
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
