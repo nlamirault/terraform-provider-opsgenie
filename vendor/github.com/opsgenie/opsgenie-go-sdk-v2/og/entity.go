@@ -70,8 +70,8 @@ func validateParticipants(rotation *Rotation) error {
 		if participant.Type == "" {
 			return errors.New("Participant type cannot be empty.")
 		}
-		if !(participant.Type == User || participant.Type == Team) {
-			return errors.New("Participant type should be one of these: 'User', 'Team'")
+		if !(participant.Type == User || participant.Type == Team || participant.Type == Escalation || participant.Type == None) {
+			return errors.New("Participant type should be one of these: 'User', 'Team', 'Escalation', 'None'")
 		}
 		if participant.Type == User && participant.Username == "" && participant.Id == "" {
 			return errors.New("For participant type user either username or id must be provided.")
@@ -79,6 +79,9 @@ func validateParticipants(rotation *Rotation) error {
 		if participant.Type == Team && participant.Name == "" && participant.Id == "" {
 			return errors.New("For participant type team either team name or id must be provided.")
 		}
+		if participant.Type == Escalation && participant.Name == "" && participant.Id == "" {
+			return errors.New("For participant type escalation either escalation name or id must be provided.")
+    }
 	}
 	return nil
 }
@@ -119,16 +122,26 @@ func ValidateFilter(filter Filter) error {
 	return nil
 }
 
+func ValidateCriteria(criteria Criteria) error {
+	if criteria.CriteriaType != MatchAll && criteria.CriteriaType != MatchAllConditions && criteria.CriteriaType != MatchAnyCondition {
+		return errors.New("criteria condition type should be one of match-all, match-any-condition or match-all-conditions")
+	}
+	if (criteria.CriteriaType == MatchAllConditions || criteria.CriteriaType == MatchAnyCondition) && len(criteria.Conditions) == 0 {
+		return errors.New("criteria conditions cannot be empty")
+	}
+	if len(criteria.Conditions) > 0 {
+		err := ValidateConditions(criteria.Conditions)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func ValidateConditions(conditions []Condition) error {
 	for _, condition := range conditions {
 		if condition.Field != ExtraProperties && condition.Key != "" {
 			return errors.New("condition key is only valid for extra-properties field")
-		}
-		switch condition.Field {
-		case Message, Alias, Description, Source, Entity, Tags, Actions, Details, ExtraProperties, Recipients, Teams, Priority:
-			break
-		default:
-			return errors.New("condition field should be one of message, alias, description, source, entity, tags, actions, details, extra-properties, recipients, teams or priority")
 		}
 		switch condition.Field {
 		case Actions, Tags, Recipients:
@@ -247,6 +260,7 @@ const (
 	Description     ConditionFieldType = "description"
 	Source          ConditionFieldType = "source"
 	Entity          ConditionFieldType = "entity"
+	EventType       ConditionFieldType = "eventType"
 	Tags            ConditionFieldType = "tags"
 	Actions         ConditionFieldType = "actions"
 	Details         ConditionFieldType = "details"
@@ -254,6 +268,10 @@ const (
 	Recipients      ConditionFieldType = "recipients"
 	Teams           ConditionFieldType = "teams"
 	Priority        ConditionFieldType = "priority"
+	ConversationSub ConditionFieldType = "conversationSubject"
+	FromAddress     ConditionFieldType = "from_address"
+	FromName        ConditionFieldType = "from_name"
+	Subject         ConditionFieldType = "subject"
 
 	Matches                ConditionOperation = "matches"
 	Contains               ConditionOperation = "contains"
@@ -296,7 +314,7 @@ type Restriction struct {
 }
 
 type Filter struct {
-	ConditionMatchType ConditionMatchType `json:"conditionMatchType,omitempty"`
+	ConditionMatchType ConditionMatchType `json:"type,omitempty"`
 	Conditions         []Condition        `json:"conditions,omitempty"`
 }
 
@@ -351,6 +369,7 @@ const (
 	Default  NotifyType = "default"
 	Users    NotifyType = "users"
 	Admins   NotifyType = "admins"
+	Random   NotifyType = "random"
 	All      NotifyType = "all"
 )
 

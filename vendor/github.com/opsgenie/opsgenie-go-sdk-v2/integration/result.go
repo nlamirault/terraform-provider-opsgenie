@@ -29,6 +29,12 @@ type APIBasedIntegrationResult struct {
 	ApiKey string `json:"apiKey"`
 }
 
+type WebhookIntegrationResult struct {
+	client.ResultMetadata
+	GenericFields
+	ApiKey string `json:"apiKey"`
+}
+
 type EmailBasedIntegrationResult struct {
 	client.ResultMetadata
 	GenericFields
@@ -63,11 +69,11 @@ type AuthenticateResult struct {
 type ActionsResult struct {
 	client.ResultMetadata
 	Parent      ParentIntegration   `json:"_parent"`
-	Ignore      []IgnoreAction      `json:"ignore"`
-	Create      []CreateAction      `json:"create"`
-	Close       []CloseAction       `json:"close"`
-	Acknowledge []AcknowledgeAction `json:"acknowledge"`
-	AddNote     []AddNoteAction     `json:"addNote"`
+	Ignore      []IntegrationAction `json:"ignore"`
+	Create      []IntegrationAction `json:"create"`
+	Close       []IntegrationAction `json:"close"`
+	Acknowledge []IntegrationAction `json:"acknowledge"`
+	AddNote     []IntegrationAction `json:"addNote"`
 }
 
 type ParentIntegration struct {
@@ -156,6 +162,7 @@ const (
 	Close       ActionType = "close"
 	Acknowledge ActionType = "acknowledge"
 	AddNote     ActionType = "AddNote"
+	Ignore      ActionType = "ignore"
 )
 
 type Responder struct {

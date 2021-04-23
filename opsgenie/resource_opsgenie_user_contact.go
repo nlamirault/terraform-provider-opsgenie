@@ -7,17 +7,27 @@ import (
 
 	"github.com/opsgenie/opsgenie-go-sdk-v2/contact"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceOpsGenieUserContact() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOpsGenieUserContactCreate,
-		Read:   resourceOpsGenieUserContactRead,
+		Read:   handleNonExistentResource(resourceOpsGenieUserContactRead),
 		Update: resourceOpsGenieUserContactUpdate,
 		Delete: resourceOpsGenieUserContactDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				idParts := strings.Split(d.Id(), "/")
+				if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+					return nil, fmt.Errorf("Unexpected format of ID (%q), expected username/contact_id", d.Id())
+				}
+				username := idParts[0]
+				contactId := idParts[1]
+				d.Set("username", username)
+				d.SetId(contactId)
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 		Schema: map[string]*schema.Schema{
 			"username": {

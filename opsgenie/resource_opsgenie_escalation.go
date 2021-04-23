@@ -8,14 +8,14 @@ import (
 
 	"github.com/opsgenie/opsgenie-go-sdk-v2/og"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/escalation"
 )
 
 func resourceOpsgenieEscalation() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOpsgenieEscalationCreate,
-		Read:   resourceOpsgenieEscalationRead,
+		Read:   handleNonExistentResource(resourceOpsgenieEscalationRead),
 		Update: resourceOpsgenieEscalationUpdate,
 		Delete: resourceOpsgenieEscalationDelete,
 		Importer: &schema.ResourceImporter{
@@ -152,7 +152,6 @@ func resourceOpsgenieEscalationRead(d *schema.ResourceData, meta interface{}) er
 	}
 
 	d.Set("name", getResponse.Name)
-	d.Set("id", getResponse.Id)
 	d.Set("description", getResponse.Description)
 	d.Set("rules", flattenOpsgenieEscalationRules(getResponse.Rules))
 	repeat := d.Get("repeat").([]interface{})
@@ -315,6 +314,7 @@ func validateOpsgenieEscalationRulesNotifyType(v interface{}, k string) (ws []st
 		"previous": true,
 		"users":    true,
 		"admins":   true,
+		"random":   true,
 		"all":      true,
 	}
 

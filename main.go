@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/plugin"
-	"github.com/terraform-providers/terraform-provider-opsgenie/opsgenie"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/opsgenie/terraform-provider-opsgenie/opsgenie"
 )
 
 func main() {

@@ -2,18 +2,19 @@ package opsgenie
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/opsgenie/opsgenie-go-sdk-v2/maintenance"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceOpsgenieMaintenance() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOpsgenieMaintenanceCreate,
-		Read:   resourceOpsgenieMaintenanceRead,
+		Read:   handleNonExistentResource(resourceOpsgenieMaintenanceRead),
 		Update: resourceOpsgenieMaintenanceUpdate,
 		Delete: resourceOpsgenieMaintenanceDelete,
 		Importer: &schema.ResourceImporter{
@@ -131,10 +132,8 @@ func resourceOpsgenieMaintenanceRead(d *schema.ResourceData, meta interface{}) e
 		return nil
 	}
 
-	d.Set("time", found.Time)
-	d.Set("id", found.Id)
+	d.Set("time", flattenMaintenanceTime(found.Time))
 	d.Set("description", found.Description)
-	d.Set("status", found.Status)
 
 	return nil
 }
@@ -144,20 +143,47 @@ func resourceOpsgenieMaintenanceUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-	description := d.Get("description").(string)
 
-	updateRequest := &maintenance.UpdateRequest{
-		Id:          d.Id(),
-		Description: description,
-		Rules:       expandOpsgenieMaintenanceRules(d),
-		Time:        expandOpsgenieMaintenanceTime(d),
-	}
-
-	log.Printf("[INFO] Updating OpsGenie maintenance")
-
-	_, err = client.Update(context.Background(), updateRequest)
+	mnt, err := client.Get(context.Background(), &maintenance.GetRequest{
+		Id: d.Id(),
+	})
 	if err != nil {
+		log.Printf("[ERROR] Maintenance could not fetch")
 		return err
+
+	}
+	maintenanceTime := expandOpsgenieMaintenanceTime(d)
+	if mnt.Status == "active" {
+
+		_, err := client.ChangeEndDate(context.Background(), &maintenance.ChangeEndDateRequest{
+			Id:      d.Id(),
+			EndDate: maintenanceTime.EndDate,
+		})
+		if err != nil {
+			return err
+		}
+
+	} else if mnt.Status == "planned" {
+		description := d.Get("description").(string)
+
+		updateRequest := &maintenance.UpdateRequest{
+			Id:          d.Id(),
+			Description: description,
+			Rules:       expandOpsgenieMaintenanceRules(d),
+			Time:        maintenanceTime,
+		}
+
+		log.Printf("[INFO] Updating OpsGenie maintenance")
+
+		_, err = client.Update(context.Background(), updateRequest)
+		if err != nil {
+			log.Printf("%s", err.Error())
+			return err
+		}
+	} else {
+		log.Printf("[ERROR] You cannot edit past maintenance")
+		return errors.New("You cannot edit" + mnt.Status + " maintenances")
+
 	}
 
 	return nil
@@ -255,4 +281,13 @@ func expandOpsgenieMaintenanceTime(d *schema.ResourceData) maintenance.Time {
 	}
 
 	return maintenanceTime
+}
+
+func flattenMaintenanceTime(time maintenance.Time) []map[string]interface{} {
+	timeLayout := "2006-01-02T15:04:05Z"
+	return []map[string]interface{}{{
+		"type":       time.Type,
+		"start_date": time.StartDate.Format(timeLayout),
+		"end_date":   time.EndDate.Format(timeLayout),
+	}}
 }

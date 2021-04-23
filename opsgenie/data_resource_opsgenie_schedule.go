@@ -5,15 +5,12 @@ import (
 
 	"github.com/opsgenie/opsgenie-go-sdk-v2/schedule"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataSourceOpsgenieSchedule() *schema.Resource {
 	return &schema.Resource{
 		Read: dataSourceOpsgenieScheduleRead,
-		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
-		},
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:         schema.TypeString,
@@ -65,6 +62,7 @@ func dataSourceOpsgenieScheduleRead(d *schema.ResourceData, meta interface{}) er
 	}
 	d.Set("description", getResponse.Schedule.Description)
 	d.Set("timezone", getResponse.Schedule.Timezone)
+	d.Set("enabled", getResponse.Schedule.Enabled)
 
 	return nil
 }

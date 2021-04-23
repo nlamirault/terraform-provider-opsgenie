@@ -2,17 +2,19 @@ package opsgenie
 
 import (
 	"context"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/og"
 	"log"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/og"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/integration"
 )
 
 func resourceOpsgenieEmailIntegration() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOpsgenieEmailIntegrationCreate,
-		Read:   resourceOpsgenieEmailIntegrationRead,
+		Read:   handleNonExistentResource(resourceOpsgenieEmailIntegrationRead),
 		Update: resourceOpsgenieEmailIntegrationUpdate,
 		Delete: resourceOpsgenieEmailIntegrationDelete,
 		Importer: &schema.ResourceImporter{
@@ -22,7 +24,7 @@ func resourceOpsgenieEmailIntegration() *schema.Resource {
 			"name": {
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validateOpsgenieIntegrationName,
+				ValidateFunc: validation.StringLenBetween(1, 250),
 			},
 			"email_username": {
 				Type:     schema.TypeString,
@@ -129,9 +131,14 @@ func resourceOpsgenieEmailIntegrationRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
+	if result.Data["ownerTeam"] != nil {
+		ownerTeam := result.Data["ownerTeam"].(map[string]interface{})
+		d.Set("owner_team_id", ownerTeam["id"])
+	} else if result.Data["responders"] != nil {
+		d.Set("responders", flattenIntegrationResponders(result.Data["responders"].([]interface{})))
+	}
 	d.Set("name", result.Data["name"])
-	d.Set("id", result.Data["id"])
-	d.Set("responders", result.Data["responders"])
+	d.Set("suppress_notifications", result.Data["suppressNotifications"])
 	d.Set("email_username", result.Data["emailUsername"])
 	d.Set("enabled", result.Data["enabled"])
 	return nil

@@ -14,21 +14,21 @@ Manages a User Contact.
 
 ```hcl
 resource "opsgenie_user_contact" "sms" {
-  user_id = "${opsgenie_user.exampleuser.id}"
-  to      = "39-123"
-  method  = "sms"
+  username = "${opsgenie_user.exampleuser.username}"
+  to       = "39-123"
+  method   = "sms"
 }
 
 resource "opsgenie_user_contact" "email" {
-  user_id = "${opsgenie_user.exampleuser.id}"
-  to      = "fahri@opsgenie.com"
-  method  = "email"
+  username = "${opsgenie_user.exampleuser.username}"
+  to       = "fahri@opsgenie.com"
+  method   = "email"
 }
 
 resource "opsgenie_user_contact" "voice" {
-  user_id = "${opsgenie_user.exampleuser.id}"
-  to      = "39-123"
-  method  = "voice"
+  username = "${opsgenie_user.exampleuser.username}"
+  to       = "39-123"
+  method   = "voice"
 }
 ```
 
@@ -39,7 +39,7 @@ The following arguments are supported:
 * `username` - (Required) The username for contact.(reference)
 
 * `to` - (Required) to field is the address of given method.
-                    
+
 * `method` - (Required) This parameter is the contact method of user and should be one of email, sms or voice. Please note that adding mobile is not supported from API.
 
 * `enabled` - (Optional) Enable contact of the user in OpsGenie. Default value is true.
@@ -53,6 +53,6 @@ The following attributes are exported:
 
 ## Import
 
-Users can be imported using the `id`, e.g.
+Users can be imported using the `username/contact_id`, e.g.
 
-`$ terraform import opsgenie_user_contact.testcontact da4faf16-5546-41e4-8330-4d0002b74048`
+`$ terraform import opsgenie_user_contact.testcontact username/contact_id`

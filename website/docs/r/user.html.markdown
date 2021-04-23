@@ -19,6 +19,19 @@ resource "opsgenie_user" "test" {
   role      = "User"
   locale    = "en_US"
   timezone  = "America/New_York"
+  tags = ["sre", "opsgenie"]
+  skype_username = "skypename"
+  user_address {
+      country = "Country"
+      state = "State"
+      city = "City"
+      line = "Line"
+      zipcode = "998877"
+  }
+  user_details = {
+    key1 = "val1,val2"
+    key2 = "val3,val4"
+  }
 }
 ```
 
@@ -26,7 +39,7 @@ resource "opsgenie_user" "test" {
 
 The following arguments are supported:
 
-* `username` - (Required) The email address associated with this user. Opsgenie defines that this must not be longer than 100 characters.
+* `username` - (Required) The email address associated with this user. Opsgenie defines that this must not be longer than 100 characters and must contain lowercase characters only.
 
 * `full_name` - (Required) The Full Name of the User.
 
@@ -36,6 +49,14 @@ The following arguments are supported:
 
 * `timezone` - (Optional) Timezone information of the user. Please look at [Supported Timezone Ids](https://docs.opsgenie.com/docs/supported-timezone-ids) for available timezones.
 
+* `tags` - (Optional) A list of tags to be associated with the user.
+
+* `skype_username` - (Optional) Skype username of the user.
+
+* `user_details` - (Optional) Details about the user in form of key and list. of values.
+
+* `user_address` - (Optional) Address of the user.
+
 ## Attributes Reference
 
 The following attributes are exported:
@@ -44,6 +65,6 @@ The following attributes are exported:
 
 ## Import
 
-Users can be imported using the `id`, e.g.
+Users can be imported using the `user_id`, e.g.
 
-`$ terraform import opsgenie_user.user da4faf16-5546-41e4-8330-4d0002b74048s`
+`$ terraform import opsgenie_user.user user_id`

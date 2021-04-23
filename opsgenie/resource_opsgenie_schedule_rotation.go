@@ -10,17 +10,27 @@ import (
 	"github.com/opsgenie/opsgenie-go-sdk-v2/og"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/schedule"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceOpsgenieScheduleRotation() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOpsgenieScheduleRotationCreate,
-		Read:   resourceOpsgenieScheduleRotationRead,
+		Read:   handleNonExistentResource(resourceOpsgenieScheduleRotationRead),
 		Update: resourceOpsgenieScheduleRotationUpdate,
 		Delete: resourceOpsgenieScheduleRotationDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				idParts := strings.Split(d.Id(), "/")
+				if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+					return nil, fmt.Errorf("Unexpected format of ID (%q), expected schedule_id/schedule_rotation_id", d.Id())
+				}
+				scheduleId := idParts[0]
+				scheduleRotationId := idParts[1]
+				d.Set("schedule_id", scheduleId)
+				d.SetId(scheduleRotationId)
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 		Schema: map[string]*schema.Schema{
 			"schedule_id": {
@@ -73,8 +83,9 @@ func resourceOpsgenieScheduleRotation() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"type": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validateRestrictionType,
 						},
 						"restrictions": {
 							Type:     schema.TypeList,
@@ -194,7 +205,7 @@ func resourceOpsgenieScheduleRotationCreate(d *schema.ResourceData, meta interfa
 		createRequest.Rotation.Length = uint32(length)
 	}
 	if len(timeRestriction) > 0 {
-		createRequest.Rotation.TimeRestriction = expandOpsgenieScheduleTimeRestrictions(timeRestriction)
+		createRequest.Rotation.TimeRestriction = expandTimeRestrictions(timeRestriction)
 	}
 
 	log.Printf("[INFO] Creating OpsGenie rotation '%s'", name)
@@ -228,9 +239,18 @@ func resourceOpsgenieScheduleRotationRead(d *schema.ResourceData, meta interface
 	}
 	startDate := getResponse.StartDate.Format("2006-01-02T15:04:05Z")
 	d.SetId(getResponse.Rotation.Id)
-	d.Set("participant", flattenOpsgenieScheduleRotationParticipant(getResponse.Participants))
+	d.Set("name", getResponse.Rotation.Name)
+	d.Set("length", getResponse.Length)
 	d.Set("type", getResponse.Type)
+	d.Set("participant", flattenOpsgenieScheduleRotationParticipant(getResponse.Participants))
+	if getResponse.TimeRestriction != nil {
+		d.Set("time_restriction", flattenOpsgenieScheduleRotationTimeRestriction(getResponse.TimeRestriction))
+	}
 	d.Set("start_date", startDate)
+	if getResponse.EndDate != nil {
+		endDate := getResponse.EndDate.Format("2006-01-02T15:04:05Z")
+		d.Set("end_date", endDate)
+	}
 
 	return nil
 }
@@ -245,6 +265,49 @@ func flattenOpsgenieScheduleRotationParticipant(input []og.Participant) []map[st
 	}
 
 	return participants
+}
+
+func flattenOpsgenieScheduleRotationRestriction(input og.Restriction) []map[string]interface{} {
+	output := make([]map[string]interface{}, 0, 1)
+	restriction := make(map[string]interface{})
+
+	restriction["start_hour"] = input.StartHour
+	restriction["end_hour"] = input.EndHour
+	restriction["start_min"] = input.StartMin
+	restriction["end_min"] = input.EndMin
+	output = append(output, restriction)
+
+	return output
+}
+
+func flattenOpsgenieScheduleRotationRestrictions(input []og.Restriction) []map[string]interface{} {
+	restrictions := make([]map[string]interface{}, 0, len(input))
+	for _, restriction := range input {
+		outputRestriction := make(map[string]interface{})
+		outputRestriction["start_hour"] = restriction.StartHour
+		outputRestriction["end_hour"] = restriction.EndHour
+		outputRestriction["start_min"] = restriction.StartMin
+		outputRestriction["end_min"] = restriction.EndMin
+		outputRestriction["start_day"] = restriction.StartDay
+		outputRestriction["end_day"] = restriction.EndDay
+		restrictions = append(restrictions, outputRestriction)
+	}
+
+	return restrictions
+}
+
+func flattenOpsgenieScheduleRotationTimeRestriction(input *og.TimeRestriction) []map[string]interface{} {
+	output := make([]map[string]interface{}, 0, 1)
+	timeRestriction := make(map[string]interface{})
+	timeRestriction["type"] = input.Type
+	if timeRestriction["type"] == og.TimeOfDay {
+		timeRestriction["restriction"] = flattenOpsgenieScheduleRotationRestriction(input.Restriction)
+	} else if timeRestriction["type"] == og.WeekdayAndTimeOfDay {
+		timeRestriction["restrictions"] = flattenOpsgenieScheduleRotationRestrictions(input.RestrictionList)
+	}
+	output = append(output, timeRestriction)
+
+	return output
 }
 
 func resourceOpsgenieScheduleRotationUpdate(d *schema.ResourceData, meta interface{}) error {
@@ -290,7 +353,7 @@ func resourceOpsgenieScheduleRotationUpdate(d *schema.ResourceData, meta interfa
 		updateRequest.Rotation.EndDate = &endDate
 	}
 	if len(timeRestriction) > 0 {
-		updateRequest.Rotation.TimeRestriction = expandOpsgenieScheduleTimeRestrictions(timeRestriction)
+		updateRequest.Rotation.TimeRestriction = expandTimeRestrictions(timeRestriction)
 	}
 	log.Printf("[INFO] Updating OpsGenie schedule rotation '%s'", name)
 
@@ -347,8 +410,7 @@ func expandOpsgenieScheduleParticipants(input []interface{}) []og.Participant {
 
 	return participants
 }
-func expandOpsgenieScheduleTimeRestrictions(d []interface{}) *og.TimeRestriction {
-
+func expandTimeRestrictions(d []interface{}) *og.TimeRestriction {
 	timeRestriction := og.TimeRestriction{}
 
 	for _, v := range d {
@@ -358,16 +420,16 @@ func expandOpsgenieScheduleTimeRestrictions(d []interface{}) *og.TimeRestriction
 		timeRestriction.Type = og.RestrictionType(timeRestrictionType)
 
 		if len(config["restrictions"].([]interface{})) > 0 {
-			timeRestriction.RestrictionList = expandOpsgenieScheduleRestrictions(config["restrictions"].([]interface{}))
+			timeRestriction.RestrictionList = expandOpsgenieRestrictions(config["restrictions"].([]interface{}))
 		} else {
-			timeRestriction.Restriction = expandOpsgenieScheduleRestriction(config["restriction"].([]interface{}))
+			timeRestriction.Restriction = expandOpsgenieRestriction(config["restriction"].([]interface{}))
 		}
 	}
 
 	return &timeRestriction
 }
 
-func expandOpsgenieScheduleRestrictions(input []interface{}) []og.Restriction {
+func expandOpsgenieRestrictions(input []interface{}) []og.Restriction {
 	restrictionList := make([]og.Restriction, 0, len(input))
 
 	if input == nil {
@@ -395,7 +457,7 @@ func expandOpsgenieScheduleRestrictions(input []interface{}) []og.Restriction {
 	return restrictionList
 }
 
-func expandOpsgenieScheduleRestriction(input []interface{}) og.Restriction {
+func expandOpsgenieRestriction(input []interface{}) og.Restriction {
 
 	restriction := og.Restriction{}
 	for _, v := range input {
@@ -477,6 +539,19 @@ func validateMinParams(v interface{}, k string) (ws []string, errors []error) {
 	if value < 0 || value > 59 {
 		errors = append(errors, fmt.Errorf("minute must in between of 0-59"))
 
+	}
+	return
+}
+
+func validateRestrictionType(v interface{}, k string) (ws []string, errors []error) {
+	value := v.(string)
+	families := map[string]bool{
+		"time-of-day":             true,
+		"weekday-and-time-of-day": true,
+	}
+
+	if !families[value] {
+		errors = append(errors, fmt.Errorf("time restriction type must be time-of-day or weekday-and-time-of-day"))
 	}
 	return
 }
